@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.0.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22 d17.14
 MinimumVisualStudioVersion = 16.0.0.0
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlazorCsvCharts.Server", "Server\BlazorCsvCharts.Server.csproj", "{90A46871-995A-4E59-A571-709F046590D1}"
 EndProject
@@ -18,18 +18,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x64.Build.0 = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x86.Build.0 = Debug|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x64.ActiveCfg = Release|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x64.Build.0 = Release|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x86.ActiveCfg = Release|Any CPU
-		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x86.Build.0 = Release|Any CPU
 		{90A46871-995A-4E59-A571-709F046590D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{90A46871-995A-4E59-A571-709F046590D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{90A46871-995A-4E59-A571-709F046590D1}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -42,6 +30,18 @@ Global
 		{90A46871-995A-4E59-A571-709F046590D1}.Release|x64.Build.0 = Release|Any CPU
 		{90A46871-995A-4E59-A571-709F046590D1}.Release|x86.ActiveCfg = Release|Any CPU
 		{90A46871-995A-4E59-A571-709F046590D1}.Release|x86.Build.0 = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x64.Build.0 = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Debug|x86.Build.0 = Debug|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x64.ActiveCfg = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x64.Build.0 = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x86.ActiveCfg = Release|Any CPU
+		{B183BB02-E42D-424F-B692-B074C6216B3E}.Release|x86.Build.0 = Release|Any CPU
 		{C5D0EA77-AF14-48DB-87DF-CF975539FF40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C5D0EA77-AF14-48DB-87DF-CF975539FF40}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C5D0EA77-AF14-48DB-87DF-CF975539FF40}.Debug|x64.ActiveCfg = Debug|Any CPU

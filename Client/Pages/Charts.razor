@@ -1,0 +1,98 @@
+﻿@page "/charts"
+@using ChartJs.Blazor.BarChart
+@using ChartJs.Blazor.Common
+@using ChartJs.Blazor.Common.Axes
+@using ChartJs.Blazor.Common.Axes.Ticks
+@using ChartJs.Blazor.BarChart.Axes
+@using ChartJs.Blazor.Util
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Globalization
+
+<h3>Загрузка CSV и график</h3>
+
+<InputFile OnChange="OnFileChange" />
+<select @onchange="OnColumnSelected">
+    <option disabled selected>-- Выберите столбец --</option>
+    @foreach (var column in Columns)
+    {
+        <option value="@column">@column</option>
+    }
+</select>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p style="color:red">@ErrorMessage</p>
+}
+
+@if (ChartConfig != null)
+{
+    <div style="width: 800px; height: 400px;">
+        <BarChart Config="ChartConfig" />
+    </div>
+}
+
+@code {
+    private List<string> Columns = new();
+    private List<Dictionary<string, string>> CsvRows = new();
+    private string? SelectedColumn = null;
+    private BarConfig? ChartConfig = null;
+    private string ErrorMessage = string.Empty;
+
+    private async Task OnFileChange(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            ErrorMessage = string.Empty;
+            var file = e.File;
+            if (file == null) { ErrorMessage = "Файл не выбран"; return; }
+
+            using var stream = file.OpenReadStream();
+            using var reader = new StreamReader(stream);
+
+            var fileContent = await reader.ReadToEndAsync();
+            var allLines = fileContent.Split(
+                new[] { "\r\n", "\n", "\r" },
+                StringSplitOptions.RemoveEmptyEntries);
+
+            var headerLine = allLines.FirstOrDefault(l => l.StartsWith("02,"));
+            if (headerLine == null) { ErrorMessage = "Не найдена строка с заголовками (02,)"; return; }
+
+            Columns = headerLine.Split(',')
+                .Skip(2)
+                .Select(c => c.Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .ToList();
+
+            var dataLines = allLines.Where(l => l.StartsWith("80,")).ToList();
+            CsvRows = dataLines.Select(l =>
+            {
+                var parts = l.Split(',');
+                var dict = new Dictionary<string, string>();
+                for (int i = 2; i < parts.Length && (i - 2) < Columns.Count; i++)
+                    dict[Columns[i - 2]] = parts[i].Trim();
+                return dict;
+            }).ToList();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void OnColumnSelected(ChangeEventArgs e)
+    {
+        SelectedColumn = e.Value?.ToString();
+        if (string.IsNullOrEmpty(SelectedColumn) || !CsvRows.Any()) return;
+
+        try
+        {
+            var values = CsvRows
+                .Select(r =>
+                {
+                    if (!r.ContainsKey(SelectedColumn)) return 0.0;
+                    return double.TryParse(r[SelectedColumn],
+                        NumberStyles.Any,
+                        CultureInfo.InvariantCulture,
+                        out var d) ? d : 0.
