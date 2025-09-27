@@ -27,22 +27,22 @@
 @if (ChartConfig != null)
 {
     <div style="width: 800px; height: 400px;">
-        <BarChart Config="ChartConfig" />
+        <Chart Config="ChartConfig" />
     </div>
 }
 
 @code {
     private List<string> Columns = new();
     private List<Dictionary<string, string>> CsvRows = new();
-    private string? SelectedColumn = null;
-    private BarConfig? ChartConfig = null;
-    private string ErrorMessage = string.Empty;
+    private string SelectedColumn;
+    private BarConfig ChartConfig;
+    private string ErrorMessage;
 
     private async Task OnFileChange(InputFileChangeEventArgs e)
     {
         try
         {
-            ErrorMessage = string.Empty;
+            ErrorMessage = null;
             var file = e.File;
             if (file == null) { ErrorMessage = "Файл не выбран"; return; }
 
@@ -95,4 +95,57 @@
                     return double.TryParse(r[SelectedColumn],
                         NumberStyles.Any,
                         CultureInfo.InvariantCulture,
-                        out var d) ? d : 0.
+                        out var d) ? d : 0.0;
+                })
+                .Cast<object>()
+                .ToList();
+
+            // Создаем конфиг
+            ChartConfig = new BarConfig
+            {
+                Options = new BarOptions
+                {
+                    Responsive = true,
+                    Title = new OptionsTitle { Display = true, Text = SelectedColumn },
+                    Scales = new BarScales
+                    {
+                        YAxes = new List<CartesianAxis>
+                        {
+                            new BarLinearCartesianAxis
+                            {
+                                Ticks = new LinearCartesianTicks { BeginAtZero = true }
+                            }
+                        }
+                    }
+                }
+            };
+
+            var dataset = new BarDataset<object>(values)
+            {
+                Label = SelectedColumn,
+                BackgroundColor = new IndexableOption<string>(
+                    values.Select(_ => ColorUtil.RandomColorString()).ToArray()
+                ),
+                BorderColor = new IndexableOption<string>("#000000"),
+                BorderWidth = 1
+            };
+
+            // Добавляем метки по одной
+            ChartConfig.Data.Labels.Clear();
+            for (int i = 1; i <= values.Count; i++)
+            {
+                ChartConfig.Data.Labels.Add($"Запись #{i}");
+            }
+
+            // Очищаем и добавляем dataset
+            ChartConfig.Data.Datasets.Clear();
+            ChartConfig.Data.Datasets.Add(dataset);
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка построения графика: {ex.Message}";
+        }
+    }
+}
