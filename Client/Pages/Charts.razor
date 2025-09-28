@@ -4,6 +4,7 @@
 @using ChartJs.Blazor.Common.Axes
 @using ChartJs.Blazor.Common.Axes.Ticks
 @using ChartJs.Blazor.BarChart.Axes
+@using ChartJs.Blazor.LineChart
 @using ChartJs.Blazor.Util
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Globalization
@@ -24,10 +25,12 @@
     <p style="color:red">@ErrorMessage</p>
 }
 
-@if (ChartConfig != null)
+@if (lineConfig != null)
 {
-    <div style="width: 800px; height: 400px;">
-        <Chart Config="ChartConfig" />
+    <div style="height:400px; overflow-x:auto; overflow-y:hidden;">
+        <div style="width:800px; height:400px;">
+            <Chart Config="@lineConfig" Width="@(lineConfig.Data.Labels.Count * 80)" Height="400" @key="SelectedColumn" />
+        </div>
     </div>
 }
 
@@ -35,8 +38,13 @@
     private List<string> Columns = new();
     private List<Dictionary<string, string>> CsvRows = new();
     private string SelectedColumn;
-    private BarConfig ChartConfig;
     private string ErrorMessage;
+    private LineConfig lineConfig;
+
+    protected override void OnInitialized()
+    {
+        
+    }
 
     private async Task OnFileChange(InputFileChangeEventArgs e)
     {
@@ -97,50 +105,81 @@
                         CultureInfo.InvariantCulture,
                         out var d) ? d : 0.0;
                 })
-                .Cast<object>()
                 .ToList();
 
-            // Создаем конфиг
-            ChartConfig = new BarConfig
+            if (!values.Any())
             {
-                Options = new BarOptions
+                ErrorMessage = "В выбранном столбце нет числовых данных";
+                return;
+            }
+
+            var minValue = values.Min();
+            var maxValue = values.Max();
+            var adjustedMax = maxValue + ((maxValue - minValue) / 3);
+
+            lineConfig = new LineConfig
+            {
+                Options = new LineOptions
                 {
-                    Responsive = true,
-                    Title = new OptionsTitle { Display = true, Text = SelectedColumn },
-                    Scales = new BarScales
+                    Responsive = false,
+                    MaintainAspectRatio = false,
+                    Title = new OptionsTitle
+                    {
+                        Display = true,
+                        Text = $"{SelectedColumn} (мин: {minValue:F2}, макс: {maxValue:F2})"
+                    },
+                    Scales = new Scales
                     {
                         YAxes = new List<CartesianAxis>
+                    {
+                        new LinearCartesianAxis
                         {
-                            new BarLinearCartesianAxis
+                            Ticks = new LinearCartesianTicks
                             {
-                                Ticks = new LinearCartesianTicks { BeginAtZero = true }
+                                BeginAtZero = false,
+                                Min = minValue,
+                                Max = adjustedMax
+                            },
+                            ScaleLabel = new ScaleLabel
+                            {
+                                Display = true,
+                                LabelString = SelectedColumn
                             }
                         }
+                    },
+                        XAxes = new List<CartesianAxis>
+                    {
+                        new CategoryAxis
+                        {
+                            ScaleLabel = new ScaleLabel
+                            {
+                                Display = true,
+                                LabelString = "Записи"
+                            }
+                        }
+                    }
                     }
                 }
             };
 
-            var dataset = new BarDataset<object>(values)
+            var dataset = new LineDataset<double>(values)
             {
                 Label = SelectedColumn,
-                BackgroundColor = new IndexableOption<string>(
-                    values.Select(_ => ColorUtil.RandomColorString()).ToArray()
-                ),
-                BorderColor = new IndexableOption<string>("#000000"),
-                BorderWidth = 1
+                Fill = false,
+                BorderColor = "#007bff",
+                LineTension = 0.1
             };
 
-            // Добавляем метки по одной
-            ChartConfig.Data.Labels.Clear();
+            lineConfig.Data.Labels.Clear();
             for (int i = 1; i <= values.Count; i++)
             {
-                ChartConfig.Data.Labels.Add($"Запись #{i}");
+                lineConfig.Data.Labels.Add($"Запись #{i}");
             }
 
-            // Очищаем и добавляем dataset
-            ChartConfig.Data.Datasets.Clear();
-            ChartConfig.Data.Datasets.Add(dataset);
+            lineConfig.Data.Datasets.Clear();
+            lineConfig.Data.Datasets.Add(dataset);
 
+            ErrorMessage = null;
             StateHasChanged();
         }
         catch (Exception ex)
