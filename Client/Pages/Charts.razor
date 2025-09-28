@@ -4,6 +4,7 @@
 @using ChartJs.Blazor.Common.Axes
 @using ChartJs.Blazor.Common.Axes.Ticks
 @using ChartJs.Blazor.BarChart.Axes
+@using ChartJs.Blazor.Common.Enums
 @using ChartJs.Blazor.LineChart
 @using ChartJs.Blazor.Util
 @using Microsoft.AspNetCore.Components.Forms
@@ -11,7 +12,7 @@
 
 <h3>Загрузка CSV и график</h3>
 
-<InputFile OnChange="OnFileChange" />
+<InputFile OnChange="OnFileChange" multiple />
 <select @onchange="OnColumnSelected">
     <option disabled selected>-- Выберите столбец --</option>
     @foreach (var column in Columns)
@@ -36,85 +37,118 @@
 
 @code {
     private List<string> Columns = new();
-    private List<Dictionary<string, string>> CsvRows = new();
+    private List<(string FileName, List<Dictionary<string, string>> Data)> CsvFiles = new();
     private string SelectedColumn;
     private string ErrorMessage;
     private LineConfig lineConfig;
 
+    // Заданные цвета в темных оттенках
+    private readonly string[] Colors = new[]
+    {
+        "#0072BD",
+        "#D95319",
+        "#EDB120",
+        "#7E2F8E",
+        "#77AC30",
+        "#4DBEEE"
+    };
+
     protected override void OnInitialized()
     {
-        
+
     }
 
     private async Task OnFileChange(InputFileChangeEventArgs e)
     {
-        try
+        ErrorMessage = null;
+        var files = e.GetMultipleFiles();
+        const long maxFileSize = 10 * 1024 * 1024;
+
+        foreach (var file in files)
         {
-            ErrorMessage = null;
-            var file = e.File;
-            if (file == null) { ErrorMessage = "Файл не выбран"; return; }
-
-            using var stream = file.OpenReadStream();
-            using var reader = new StreamReader(stream);
-
-            var fileContent = await reader.ReadToEndAsync();
-            var allLines = fileContent.Split(
-                new[] { "\r\n", "\n", "\r" },
-                StringSplitOptions.RemoveEmptyEntries);
-
-            var headerLine = allLines.FirstOrDefault(l => l.StartsWith("02,"));
-            if (headerLine == null) { ErrorMessage = "Не найдена строка с заголовками (02,)"; return; }
-
-            Columns = headerLine.Split(',')
-                .Skip(2)
-                .Select(c => c.Trim())
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .ToList();
-
-            var dataLines = allLines.Where(l => l.StartsWith("80,")).ToList();
-            CsvRows = dataLines.Select(l =>
+            try
             {
-                var parts = l.Split(',');
-                var dict = new Dictionary<string, string>();
-                for (int i = 2; i < parts.Length && (i - 2) < Columns.Count; i++)
-                    dict[Columns[i - 2]] = parts[i].Trim();
-                return dict;
-            }).ToList();
+                if (file.Size > maxFileSize)
+                {
+                    ErrorMessage = $"Файл {file.Name} слишком большой";
+                    continue;
+                }
 
-            StateHasChanged();
+                using var stream = file.OpenReadStream(maxAllowedSize: maxFileSize);
+                using var reader = new StreamReader(stream);
+
+                var fileContent = await reader.ReadToEndAsync();
+                var allLines = fileContent.Split(
+                    new[] { "\r\n", "\n", "\r" },
+                    StringSplitOptions.RemoveEmptyEntries);
+
+                var headerLine = allLines.FirstOrDefault(l => l.StartsWith("02,"));
+                if (headerLine == null)
+                {
+                    ErrorMessage = $"В файле {file.Name} нет заголовков (02,)";
+                    continue;
+                }
+
+                if (Columns.Count == 0)
+                {
+                    Columns = headerLine.Split(',')
+                        .Skip(2)
+                        .Select(c => c.Trim())
+                        .Where(c => !string.IsNullOrWhiteSpace(c))
+                        .ToList();
+                }
+
+                var dataLines = allLines.Where(l => l.StartsWith("80,")).ToList();
+                var fileData = dataLines.Select(l =>
+                {
+                    var parts = l.Split(',');
+                    var dict = new Dictionary<string, string>();
+
+                    for (int i = 2; i < parts.Length && (i - 2) < Columns.Count; i++)
+                    {
+                        dict[Columns[i - 2]] = parts[i].Trim();
+                    }
+                    return dict;
+                }).ToList();
+
+                // Сохраняем с именем файла
+                CsvFiles.Add((file.Name, fileData));
+                Console.WriteLine($"Загружен файл {file.Name} с {fileData.Count} записями");
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Ошибка при обработке файла {file.Name}: {ex.Message}";
+            }
         }
-        catch (Exception ex)
-        {
-            ErrorMessage = ex.Message;
-        }
+
+        StateHasChanged();
     }
 
     private void OnColumnSelected(ChangeEventArgs e)
     {
         SelectedColumn = e.Value?.ToString();
-        if (string.IsNullOrEmpty(SelectedColumn) || !CsvRows.Any()) return;
+        if (string.IsNullOrEmpty(SelectedColumn) || !CsvFiles.Any()) return;
 
         try
         {
-            var values = CsvRows
-                .Select(r =>
-                {
-                    if (!r.ContainsKey(SelectedColumn)) return 0.0;
-                    return double.TryParse(r[SelectedColumn],
-                        NumberStyles.Any,
-                        CultureInfo.InvariantCulture,
-                        out var d) ? d : 0.0;
-                })
+            // Собираем все значения для вычисления границ
+            var allValues = CsvFiles
+                .SelectMany(file => file.Data
+                    .Where(r => r.ContainsKey(SelectedColumn))
+                    .Select(r => double.TryParse(r[SelectedColumn], NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0.0)
+                )
+                .Where(v => v != 0.0)
                 .ToList();
 
-            if (!values.Any())
+            if (!allValues.Any())
             {
                 ErrorMessage = "В выбранном столбце нет числовых данных";
                 return;
             }
 
-            var minValue = values.Min();
-            var maxValue = values.Max();
+            // Формула корреляции границ
+            var minValue = allValues.Min();
+            var maxValue = allValues.Max();
             var adjustedMax = maxValue + ((maxValue - minValue) / 3);
 
             lineConfig = new LineConfig
@@ -126,58 +160,106 @@
                     Title = new OptionsTitle
                     {
                         Display = true,
-                        Text = $"{SelectedColumn} (мин: {minValue:F2}, макс: {maxValue:F2})"
+                        Text = $"{SelectedColumn} (сравнение {CsvFiles.Count} файлов)"
+                    },
+                    Legend = new Legend
+                    {
+                        Display = true,
+                        Position = Position.Left,
+                        Labels = new LegendLabels
+                        {
+                            BoxWidth = 12,
+                            FontSize = 11,
+                            UsePointStyle = false
+                        }
                     },
                     Scales = new Scales
                     {
                         YAxes = new List<CartesianAxis>
-                    {
-                        new LinearCartesianAxis
                         {
-                            Ticks = new LinearCartesianTicks
+                            new LinearCartesianAxis
                             {
-                                BeginAtZero = false,
-                                Min = minValue,
-                                Max = adjustedMax
-                            },
-                            ScaleLabel = new ScaleLabel
+                                Ticks = new LinearCartesianTicks
+                                {
+                                    BeginAtZero = false,
+                                    Min = minValue,
+                                    Max = adjustedMax
+                                },
+                                ScaleLabel = new ScaleLabel
+                                {
+                                    Display = true,
+                                    LabelString = SelectedColumn
+                                }
+                            }
+                        },
+                        XAxes = new List<CartesianAxis>
+                        {
+                            new CategoryAxis
                             {
-                                Display = true,
-                                LabelString = SelectedColumn
+                                ScaleLabel = new ScaleLabel
+                                {
+                                    Display = true,
+                                    LabelString = "Записи"
+                                },
+                                Ticks = new CategoryTicks
+                                {
+                                    MaxRotation = 45,
+                                    MinRotation = 45
+                                }
                             }
                         }
                     },
-                        XAxes = new List<CartesianAxis>
-                    {
-                        new CategoryAxis
-                        {
-                            ScaleLabel = new ScaleLabel
-                            {
-                                Display = true,
-                                LabelString = "Записи"
-                            }
-                        }
-                    }
-                    }
                 }
             };
 
-            var dataset = new LineDataset<double>(values)
-            {
-                Label = SelectedColumn,
-                Fill = false,
-                BorderColor = "#007bff",
-                LineTension = 0.1
-            };
-
             lineConfig.Data.Labels.Clear();
-            for (int i = 1; i <= values.Count; i++)
-            {
-                lineConfig.Data.Labels.Add($"Запись #{i}");
-            }
-
             lineConfig.Data.Datasets.Clear();
-            lineConfig.Data.Datasets.Add(dataset);
+
+            // Проходим по каждому файлу и строим линию
+            for (int i = 0; i < CsvFiles.Count; i++)
+            {
+                var (fileName, rows) = CsvFiles[i];
+                var colorIndex = i % Colors.Length;
+
+                var values = rows
+                    .Select(r =>
+                    {
+                        if (!r.ContainsKey(SelectedColumn)) return 0.0;
+                        return double.TryParse(r[SelectedColumn],
+                            NumberStyles.Any,
+                            CultureInfo.InvariantCulture,
+                            out var d) ? d : 0.0;
+                    })
+                    .ToList();
+
+                var dataset = new LineDataset<double>(values)
+                {
+                    Label = $"{Path.GetFileNameWithoutExtension(fileName)}", // Только имя файла без расширения
+                    Fill = FillingMode.Disabled,
+                    BorderColor = Colors[colorIndex],
+                    BackgroundColor = Colors[colorIndex] + "20", // Добавляем прозрачность для фона
+                    PointBackgroundColor = Colors[colorIndex],
+                    PointBorderColor = "#ffffff",
+                    PointBorderWidth = 1,
+                    PointRadius = 3,
+                    PointHoverRadius = 5,
+                    BorderWidth = 2,
+                    LineTension = 0.1,
+                    PointStyle = PointStyle.Circle
+                };
+
+                lineConfig.Data.Datasets.Add(dataset);
+
+                // Добавляем подписи по X (берем максимальное количество записей)
+                if (values.Count > lineConfig.Data.Labels.Count)
+                {
+                    lineConfig.Data.Labels.Clear();
+                    for (int j = 1; j <= values.Count; j++)
+                    {
+                        lineConfig.Data.Labels.Add($"#{j}");
+                    }
+                }
+            }
 
             ErrorMessage = null;
             StateHasChanged();
@@ -187,4 +269,23 @@
             ErrorMessage = $"Ошибка построения графика: {ex.Message}";
         }
     }
+}
+@if (lineConfig != null && CsvFiles.Any())
+{
+    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+        <h5 style="margin-bottom: 10px;">Файлы и их цвета:</h5>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            @for (int i = 0; i < CsvFiles.Count; i++)
+            {
+                var (fileName, _) = CsvFiles[i];
+                var color = Colors[i % Colors.Length];
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 20px; height: 20px; background-color: @color; border: 1px solid #000; border-radius: 3px;"></div>
+                    <span style="font-family: monospace; font-size: 14px;">@Path.GetFileNameWithoutExtension(fileName)</span>
+                    <span style="color: #6c757d; font-size: 12px;">(@color)</span>
+                </div>
+            }
+        </div>
+    </div>
 }
